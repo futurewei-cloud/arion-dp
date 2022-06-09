@@ -21,7 +21,7 @@ mac_port_prefix = "6c:dd:ee:"
 
 # Transfer the file locally to aca nodes
 
-
+# Upload file to ONE aca
 def upload_file_aca(host, user, password, server_path, local_path, timeout=600):
     """
     :param host
@@ -33,13 +33,12 @@ def upload_file_aca(host, user, password, server_path, local_path, timeout=600):
     :return: bool
     """
     try:
-        for host_ip in host:
-            t = paramiko.Transport((host_ip, 22))
-            t.banner_timeout = timeout
-            t.connect(username=user, password=password)
-            sftp = paramiko.SFTPClient.from_transport(t)
-            sftp.put(local_path, server_path)
-            t.close()
+        t = paramiko.Transport((host, 22))
+        t.banner_timeout = timeout
+        t.connect(username=user, password=password)
+        sftp = paramiko.SFTPClient.from_transport(t)
+        sftp.put(local_path, server_path)
+        t.close()
         return True
     except Exception as e:
         print(e)
@@ -209,23 +208,7 @@ def talk_to_zeta(file_path, zgc_api_url, zeta_data, port_api_upper_limit, time_i
 # the ports' info inside are based on the PORT_data in zeta_data.json, please modify it accordingly to suit your needs
 
 
-def get_port_template(i):
-    if i % 2 == 0:
-        return {
-            "port_id": "333d4fae-7dec-11d0-a765-00a0c9341120",
-            "vpc_id": "3dda2801-d675-4688-a63f-dcda8d327f61",
-            "ips_port": [
-                {
-                    "ip": "10.10.0.92",
-                    "vip": ""
-                }
-            ],
-            "mac_port": "cc:dd:ee:ff:11:22",
-            "ip_node": "192.168.20.92",
-            # "ip_node": "172.16.150.221",
-            "mac_node": "e8:bd:d1:01:77:ec"
-            # "mac_node": "64:6e:97:0d:80:a9"
-        }
+def get_port_template():
     return {
         "port_id": "99976feae-7dec-11d0-a765-00a0c9342230",
         "vpc_id": "3dda2801-d675-4688-a63f-dcda8d327f61",
@@ -237,20 +220,18 @@ def get_port_template(i):
         ],
         "mac_port": "6c:dd:ee:ff:11:32",
         "ip_node": "192.168.20.93",
-        # "ip_node": "172.16.150.222",
         "mac_node": "e8:bd:d1:01:72:c8"
-        # "mac_node": "64:6e:97:1c:8e:65"
     }
 
 
-def generate_ports(ports_to_create):
+def generate_ports(ports_to_create, aca_nodes_data):
     print(f'Need to generate {ports_to_create} ports')
-    node_data = {}
     all_ports_generated = []    # Need to skip when i == 0
     i = 0
+    number_of_compute_nodes = len(aca_nodes_data)
     while len(all_ports_generated) != ports_to_create:
         if i % 10 != 0:
-            port_template_to_use = get_port_template(i)
+            port_template_to_use = get_port_template()
             port_id = '{0:07d}ae-7dec-11d0-a765-00a0c9341120'.format(i)
             ip_2nd_octet = str((i // (255*255)))
             ip_3rd_octet = str((i % (255*255) // 255))
@@ -259,9 +240,15 @@ def generate_ports(ports_to_create):
                 ip = ips_ports_ip_prefix + ip_2nd_octet + \
                     "." + ip_3rd_octet + "." + ip_4th_octet
                 mac = mac_port_prefix + "%02x"%int(ip_2nd_octet) + ":" + "%02x"%int(ip_3rd_octet) + ":" + "%02x"%int(ip_4th_octet)
+                compute_node_to_use = aca_nodes_data[number_of_compute_nodes % i]
+                if 'port_ips' not in compute_node_to_use:
+                    compute_node_to_use['port_ips'] = list()
+                compute_node_to_use['port_ips'].append(ip)
                 port_template_to_use['port_id'] = port_id
                 port_template_to_use['ips_port'][0]['ip'] = ip
                 port_template_to_use['mac_port'] = mac
+                port_template_to_use['ip_node'] = compute_node_to_use['ip']
+                port_template_to_use['mac_node'] = compute_node_to_use['mac']
                 all_ports_generated.append(port_template_to_use)
         i = i + 1
     return all_ports_generated
@@ -301,6 +288,8 @@ def run():
     print(f'Server aca repo path: {server_aca_repo_path}')
     zgc_api_url = zeta_data["arion_api_ip"]
 
+    aca_nodes_data = zeta_data["aca_nodes_2"]
+
     use_preferred_gw = zeta_data["use_preferred_gw"]
 
     testcases_to_run = ['DISABLED_zeta_scale_container',
@@ -319,7 +308,7 @@ def run():
         print("Has arguments, need to generate some ports!")
         if ports_to_create >= 2:
             print(f'Trying to create {ports_to_create} ports.')
-            zeta_data['PORT_data'] = generate_ports(ports_to_create)
+            zeta_data['PORT_data'] = generate_ports(ports_to_create, aca_nodes_data)
             execute_ping = True
             print(
                 f'After generating ports, we now have {len(zeta_data["PORT_data"])} entries in the PORT_data')
@@ -355,26 +344,26 @@ def run():
     if json_content_for_aca is False:
         print('Failed to talk to Zeta, pseudo controller will exit now.')
 
-    aca_nodes_data = zeta_data["aca_nodes"]
-    aca_nodes_ip = aca_nodes_data['ip']
+    for compute_node in aca_nodes_data:
+        if 'port_ips' in compute_node:
+            print(f'There are {len(compute_node["port_ips"])} ports in compute node {compute_node["ip"]}')
+            if len(compute_node["port_ips"]) <= 0:
+                print(f'THIS IS WONG: Compute node {compute_node["ip"]} has less than 1 port. Exiting...')
+                exit(-1)
+        res = upload_file_aca(compute_node['ip'], compute_node['username'], compute_node['password'],
+                              server_aca_repo_path + aca_data_destination_path, aca_data_local_path)
+        if not res:
+            print(f'FAIlED to upload file {aca_data_local_path} to compute node {compute_node["ip"]}')
+            return
+        else:
+            print(f'SUCCEEDED to upload file {aca_data_local_path} to compute node {compute_node["ip"]}')
 
-    res = upload_file_aca(aca_nodes_data['ip'], aca_nodes_data['username'], aca_nodes_data['password'],
-                          server_aca_repo_path + aca_data_destination_path, aca_data_local_path)
-    if not res:
-        print("upload file %s failed" % aca_data_local_path)
-        return
-    else:
-        print("upload file %s successfully" % aca_data_local_path)
-        print('Before the Ping test, remove previously created containers on aca nodes, if any.')
+    print('Before the Ping test, remove previously created containers on aca nodes, if any.')
 
     remove_container_cmd = [
         'docker rm -f $(docker ps --filter "label=test=zeta" -aq)']
-    aca_nodes = aca_nodes_ip
-
-    exec_sshCommand_aca(
-        host=aca_nodes[0], user=aca_nodes_data['username'], password=aca_nodes_data['password'], cmd=remove_container_cmd, timeout=20)
-    exec_sshCommand_aca(
-        host=aca_nodes[1], user=aca_nodes_data['username'], password=aca_nodes_data['password'], cmd=remove_container_cmd, timeout=20)
+    for compute_node in aca_nodes_data:
+        exec_sshCommand_aca(host=compute_node['ip'], user=compute_node['username'], password=compute_node['password'], cmd=remove_container_cmd, timeout=20)
 
     test_start_time = time.time()
     # Execute remote command, use the transferred file to change the information in aca_test_ovs_util.cpp,recompile using 'make',perform aca_test
@@ -388,26 +377,21 @@ def run():
     if run_aca_setup_in_background == False:
         print('Running ACA set up, and need to wait until finished.')
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_child = executor.submit(
-                exec_sshCommand_aca, aca_nodes[1], aca_nodes_data['username'], aca_nodes_data['password'], cmd_child, 1500, False)
-            future_parent = executor.submit(
-                exec_sshCommand_aca, aca_nodes[0], aca_nodes_data['username'], aca_nodes_data['password'], cmd_parent, 1500, False)
-            result_child = future_child.result()
-            result_parent = future_parent.result()
-            text_file_child = open("output_child.log", "w")
-            text_file_child.write(result_child['data'][0])
-            text_file_child.close()
-            text_file_parent = open("output_parent.log", "w")
-            text_file_parent.write(result_parent['data'][0])
-            text_file_parent.close()
-            print("Port set up finished")
+            future_list = []
+            for compute_node in aca_nodes_data:
+                future = executor.submit(exec_sshCommand_aca, compute_node['ip'], compute_node['username'], compute_node['password'], cmd_child, 1500, False)
+                compute_node_setup_result = future.result()
+                text_file_compute_node = open(f'output_{compute_node["ip"]}', "w")
+                text_file_compute_node.write(compute_node_setup_result['data'][0])
+                text_file_compute_node.close()
+                print(f'Port set up finished on compute node {compute_node["ip"]}')
     else:
         print('Running ACA setup IN THE BACKGROUND.')
         import threading
-        child_thread = threading.Thread(target=exec_sshCommand_aca, args=[aca_nodes[1], aca_nodes_data['username'], aca_nodes_data['password'], cmd_child, 1500, False])
-        parent_thread = threading.Thread(target=exec_sshCommand_aca, args=[aca_nodes[0], aca_nodes_data['username'], aca_nodes_data['password'], cmd_child, 1500, False])
-        child_thread.start()
-        parent_thread.start()
+        for compute_node in aca_nodes_data:
+            compute_node_setup_thread = threading.Thread(target=exec_sshCommand_aca, args=[compute_node['ip'], compute_node['username'], compute_node['password'], cmd_child, 1500, False])
+            compute_node_setup_thread.start()
+            print(f'Started background thread for ACA setup on compute node {compute_node["ip"]}')
         print('Started the ACA setup threads in the background, will now sleep for 20 seconds before the next steps.')
         time.sleep(20)
 
@@ -416,59 +400,53 @@ def run():
         f'Time took for the tests of ACA nodes are {test_end_time - test_start_time} seconds.')
     if execute_ping:
         print('Time for the Ping test')
-        parent_ports = [port for port in json_content_for_aca['port_response'] if (
-            port['ip_node'].split('.'))[3] == (zeta_data['aca_nodes']['ip'][0].split('.'))[3]]
-        parent_node_containers_names_string = ""
-        for port in parent_ports:
-            parent_node_containers_names_string = parent_node_containers_names_string + \
-                f' con-{port["ips_port"][0]["ip"]}'
-        child_ports = [port for port in json_content_for_aca['port_response'] if (
-            port['ip_node'].split('.'))[3] == (zeta_data['aca_nodes']['ip'][1].split('.'))[3]]
-        child_node_containers_names_string = ""
-        for port in child_ports:
-            child_node_containers_names_string = child_node_containers_names_string + \
-                f' con-{port["ips_port"][0]["ip"]}'
-        ping_result = {}
-        if len(parent_ports) > 0 and len(child_ports) > 0:
-            ping_times = 3
-            print(
-                f"*************Doing ping from parent: {aca_nodes[0]} to child: {aca_nodes[1]}*************")
-            for i in range(ping_times):
-                dump_flow_cmd = ['sudo ovs-ofctl dump-flows br-tun']
-                br_tun_before_ping = exec_sshCommand_aca(
-                    host=aca_nodes[0], user=aca_nodes_data['username'], password=aca_nodes_data['password'], cmd=dump_flow_cmd, timeout=20)
-                pinger = parent_ports[randint(0,
-                                              len(parent_ports)-1)]["ips_port"][0]["ip"]
-                pingee = child_ports[randint(0,
-                                             len(child_ports)-1)]["ips_port"][0]["ip"]
+        parent_compute_nodes = aca_nodes_data[:len(aca_nodes_data) // 2]
+        child_compute_nodes = aca_nodes_data[len(aca_nodes_data) // 2:]
 
-                ping_cmd = [f'docker exec con-{pinger} ping -c1 {pingee}']
-                print(f'Command for ping: {ping_cmd[0]}')
-                ping_result = exec_sshCommand_aca(
-                    host=aca_nodes[0], user=aca_nodes_data['username'], password=aca_nodes_data['password'], cmd=ping_cmd, timeout=20)
-                br_tun_after_ping = exec_sshCommand_aca(
-                    host=aca_nodes[0], user=aca_nodes_data['username'], password=aca_nodes_data['password'], cmd=dump_flow_cmd, timeout=20)
-                print(f'Ping succeeded: {ping_result["status"][0] == 0}')
-            print(
-                f"*************Doing ping from child: {aca_nodes[1]} to parent: {aca_nodes[0]}*************")
-            for i in range(ping_times):
-                dump_flow_cmd = ['sudo ovs-ofctl dump-flows br-tun']
-                br_tun_before_ping = exec_sshCommand_aca(
-                    host=aca_nodes[1], user=aca_nodes_data['username'], password=aca_nodes_data['password'], cmd=dump_flow_cmd, timeout=20)
-                pinger = child_ports[randint(0,
-                                             len(child_ports)-1)]["ips_port"][0]["ip"]
-                pingee = parent_ports[randint(0,
-                                              len(parent_ports)-1)]["ips_port"][0]["ip"]
+        ping_times = 3
 
-                ping_cmd = [f'docker exec con-{pinger} ping -c1 {pingee}']
-                print(f'Command for ping: {ping_cmd[0]}')
-                ping_result = exec_sshCommand_aca(
-                    host=aca_nodes[1], user=aca_nodes_data['username'], password=aca_nodes_data['password'], cmd=ping_cmd, timeout=20)
-                br_tun_after_ping = exec_sshCommand_aca(
-                    host=aca_nodes[1], user=aca_nodes_data['username'], password=aca_nodes_data['password'], cmd=dump_flow_cmd, timeout=20)
-                print(f'Ping succeeded: {ping_result["status"][0] == 0}')
-        else:
-            print(f'Either parent or child does not have any ports, somethings wrong.')
+        for i in range(ping_times):
+            pinger_node = parent_compute_nodes[randint(0, len(parent_compute_nodes) - 1)]
+            pinger_port = pinger_node['port_ips'][randint(0, len(pinger_node['port_ips']) - 1)]
+            pingee_node = child_compute_nodes[randint(0, len(child_compute_nodes) - 1)]
+            pingee_port = pingee_node['port_ips'][randint(0, len(pingee_node['port_ips']) - 1)]
+            print(
+                f"*************Doing ping from port {pinger_port} in parent compute node: {pinger_node['ip']} to port {pingee_port} in child compute node: {pingee_node['ip']}*************")
+            dump_flow_cmd = ['sudo ovs-ofctl dump-flows br-tun']
+            br_tun_before_ping = exec_sshCommand_aca(
+                host=pinger_node['ip'], user=pinger_node['username'], password=pinger_node['password'],
+                cmd=dump_flow_cmd, timeout=20)
+            ping_cmd = [f'docker exec con-{pinger_port} ping -c1 {pingee_port}']
+            print(f'Command for ping: {ping_cmd[0]}')
+            ping_result = exec_sshCommand_aca(
+                host=pinger_node['ip'], user=pinger_node['username'], password=pinger_node['password'], cmd=ping_cmd,
+                timeout=20)
+            br_tun_after_ping = exec_sshCommand_aca(
+                host=pinger_node['ip'], user=pinger_node['username'], password=pinger_node['password'],
+                cmd=dump_flow_cmd, timeout=20)
+            print(f'Ping succeeded: {ping_result["status"][0] == 0}')
+
+        for i in range(ping_times):
+            pinger_node = child_compute_nodes[randint(0, len(child_compute_nodes) - 1)]
+            pinger_port = pinger_node['port_ips'][randint(0, len(pinger_node['port_ips']) - 1)]
+            pingee_node = parent_compute_nodes[randint(0, len(parent_compute_nodes) - 1)]
+            pingee_port = pingee_node['port_ips'][randint(0, len(pingee_node['port_ips']) - 1)]
+            print(
+                f"*************Doing ping from port {pinger_port} in child compute node: {pinger_node['ip']} to port {pingee_port} in parent compute node: {pingee_node['ip']}*************")
+            dump_flow_cmd = ['sudo ovs-ofctl dump-flows br-tun']
+            br_tun_before_ping = exec_sshCommand_aca(
+                host=pinger_node['ip'], user=pinger_node['username'], password=pinger_node['password'],
+                cmd=dump_flow_cmd, timeout=20)
+            ping_cmd = [f'docker exec con-{pinger_port} ping -c1 {pingee_port}']
+            print(f'Command for ping: {ping_cmd[0]}')
+            ping_result = exec_sshCommand_aca(
+                host=pinger_node['ip'], user=pinger_node['username'], password=pinger_node['password'], cmd=ping_cmd,
+                timeout=20)
+            br_tun_after_ping = exec_sshCommand_aca(
+                host=pinger_node['ip'], user=pinger_node['username'], password=pinger_node['password'],
+                cmd=dump_flow_cmd, timeout=20)
+            print(f'Ping succeeded: {ping_result["status"][0] == 0}')
+
     print('This is the end of the pseudo controller, goodbye.')
 
 

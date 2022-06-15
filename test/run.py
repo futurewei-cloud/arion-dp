@@ -240,7 +240,7 @@ def generate_ports(ports_to_create, aca_nodes_data):
                 ip = ips_ports_ip_prefix + ip_2nd_octet + \
                     "." + ip_3rd_octet + "." + ip_4th_octet
                 mac = mac_port_prefix + "%02x"%int(ip_2nd_octet) + ":" + "%02x"%int(ip_3rd_octet) + ":" + "%02x"%int(ip_4th_octet)
-                compute_node_to_use = aca_nodes_data[number_of_compute_nodes % i]
+                compute_node_to_use = aca_nodes_data[i % number_of_compute_nodes]
                 if 'port_ips' not in compute_node_to_use:
                     compute_node_to_use['port_ips'] = list()
                 compute_node_to_use['port_ips'].append(ip)

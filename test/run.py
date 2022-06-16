@@ -18,6 +18,8 @@ aca_data_local_path = './aca_data.json'
 ips_ports_ip_prefix = "123."
 mac_port_prefix = "6c:dd:ee:"
 
+# use a dict to record which ports are sent to ACA.
+port_ips_to_send_to_aca = dict()
 
 # Transfer the file locally to aca nodes
 
@@ -189,6 +191,11 @@ def talk_to_zeta(file_path, zgc_api_url, zeta_data, port_api_upper_limit, time_i
         f'ALL PORT post call ended, for {amount_of_ports} ports creation it took: {all_ports_end_time - all_ports_start_time} seconds')
     json_content_for_aca['port_response'] = list(
         itertools.chain.from_iterable(all_post_responses))[:ports_to_send_to_aca]
+
+    # for each port_response, use port virtual ip as key, and an int as value
+    for port in json_content_for_aca['port_response']:
+        port_ips_to_send_to_aca[port['ips_port'][0]['ip']] = 1
+
     print(
         f'Amount of ports to send to aca: {len(json_content_for_aca["port_response"])}')
 
@@ -399,6 +406,12 @@ def run():
     print(
         f'Time took for the tests of ACA nodes are {test_end_time - test_start_time} seconds.')
     if execute_ping:
+        for comopute_node in aca_nodes_data:
+            for port_ip_on_a_compute_node in compute_node['port_ips']:
+                if port_ip_on_a_compute_node not in port_ips_to_send_to_aca:
+                    compute_node['port_ips'].remove(port_ip_on_a_compute_node)
+            print(f'After removing port IPs that were not sent to the compute node, {compute_node["ip"]} now has {len(compute_node["port_ips"])} ports')
+
         print('Time for the Ping test')
         parent_compute_nodes = aca_nodes_data[:len(aca_nodes_data) // 2]
         child_compute_nodes = aca_nodes_data[len(aca_nodes_data) // 2:]

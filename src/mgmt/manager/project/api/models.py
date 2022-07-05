@@ -116,9 +116,10 @@ class ArionGatewayCluster(IdentifiedDataSerializable):
         self.overlay_type = object_data_input.read_string()
 
 class RoutingRule(IdentifiedDataSerializable):
-    def __init__(self, id=None, mac=None, hostmac=None, hostip=None, ip=None, vni=None, version=None):
+    def __init__(self, id=None, mac=None, ariongroup=None, hostmac=None, hostip=None, ip=None, vni=None, version=None):
         self.id = id
         self.mac = mac
+        self.ariongroup = ariongroup
         self.hostmac = hostmac
         self.hostip = hostip
         self.ip = ip
@@ -137,6 +138,7 @@ class RoutingRule(IdentifiedDataSerializable):
     def write_data(self, object_data_output):
         object_data_output.write_string(self.id)
         object_data_output.write_string(self.mac)
+        object_data_output.write_string(self.ariongroup)
         object_data_output.write_string(self.hostmac)
         object_data_output.write_string(self.hostip)
         object_data_output.write_string(self.ip)
@@ -146,6 +148,7 @@ class RoutingRule(IdentifiedDataSerializable):
     def read_data(self, object_data_input):
         self.id = object_data_input.read_string()
         self.mac = object_data_input.read_string()
+        self.ariongroup = object_data_input.read_string()
         self.hostmac = object_data_input.read_string()
         self.hostip = object_data_input.read_string()
         self.ip = object_data_input.read_string()

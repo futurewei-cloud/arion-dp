@@ -406,7 +406,7 @@ def run():
     print(
         f'Time took for the tests of ACA nodes are {test_end_time - test_start_time} seconds.')
     if execute_ping:
-        for comopute_node in aca_nodes_data:
+        for compute_node in aca_nodes_data:
             for port_ip_on_a_compute_node in compute_node['port_ips']:
                 if port_ip_on_a_compute_node not in port_ips_to_send_to_aca:
                     compute_node['port_ips'].remove(port_ip_on_a_compute_node)

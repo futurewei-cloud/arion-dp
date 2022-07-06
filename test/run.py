@@ -406,11 +406,17 @@ def run():
     print(
         f'Time took for the tests of ACA nodes are {test_end_time - test_start_time} seconds.')
     if execute_ping:
+        print(f'There are {len(port_ips_to_send_to_aca.keys())} ports on all {len(aca_nodes_data)} compute nodes.')
         for compute_node in aca_nodes_data:
+            print(f'Before removing port IPs that were not sent to the compute node, {compute_node["ip"]} now has {len(compute_node["port_ips"])} ports')
+            # A spell that takes less lines but harder to understand.
+            # compute_node['port_ips'] = [port_ip for port_ip in compute_node['port_ips'] if port_ip in port_ips_to_send_to_aca.keys()]
+            ports_on_compute_node = list()
             for port_ip_on_a_compute_node in compute_node['port_ips']:
-                if port_ip_on_a_compute_node not in port_ips_to_send_to_aca:
-                    compute_node['port_ips'].remove(port_ip_on_a_compute_node)
-            print(f'After removing port IPs that were not sent to the compute node, {compute_node["ip"]} now has {len(compute_node["port_ips"])} ports')
+                if port_ip_on_a_compute_node in port_ips_to_send_to_aca.keys():
+                    ports_on_compute_node.append(port_ip_on_a_compute_node)
+            print(f'After removing port IPs that were not sent to the compute node, {compute_node["ip"]} now has {len(ports_on_compute_node)} ports')
+            compute_node['port_ips'] = ports_on_compute_node
 
         print('Time for the Ping test')
         parent_compute_nodes = aca_nodes_data[:len(aca_nodes_data) // 2]

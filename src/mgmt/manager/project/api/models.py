@@ -209,6 +209,25 @@ class Zgc(db.Model):
         }
 
 
+class Gw(db.Model):
+
+    __tablename__ = 'gws'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    node_id = db.Column(db.String(64), db.ForeignKey('nodes.node_id'),
+                       nullable=False)
+    ip = db.Column(db.String, nullable=False)
+    mac = db.Column(db.String, nullable=False)
+
+    def to_json(self):
+        return {
+            'id': self.id,
+            'ip': self.ip,
+            'mac': self.mac,
+            'node_id': self.node_id
+        }
+
+
 class Node(db.Model):
 
     __tablename__ = 'nodes'
@@ -226,6 +245,7 @@ class Node(db.Model):
     mac_tenant = db.Column(db.String(18), nullable=False)
     inf_zgc = db.Column(db.String(16), nullable=False)
     mac_zgc = db.Column(db.String(18), nullable=False)
+    gws = db.relationship("Gw", backref="node")
 
     def to_json(self):
         return {
@@ -236,8 +256,10 @@ class Node(db.Model):
             'description': self.description,
             'ip_control': self.ip_control,
             'inf_tenant': self.inf_tenant,
-            'inf_zgc': self.inf_zgc
+            'inf_zgc': self.inf_zgc,
+            'gws': [gw.to_json() for gw in self.gws]
         }
+
 
 
 class Vpc(db.Model):

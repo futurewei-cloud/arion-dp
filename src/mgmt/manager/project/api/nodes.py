@@ -18,7 +18,7 @@ from flask import (
 )
 from kubernetes.client.rest import ApiException
 from kubernetes import client, config
-from project.api.models import ArionNode, Node, Zgc
+from project.api.models import ArionNode, Node, Zgc, Gw
 from project import db
 from project.api.utils import getGWsFromIpRange, get_mac_from_ip
 from project.api.settings import activeZgc, zgc_cidr_range, node_ips
@@ -121,17 +121,41 @@ def node_load_transit_xdp(ip, inf_tenant, inf_zgc):
     rpc.load_transit_xdp(inf_tenant, inf_zgc, int(activeZgc["port_ibo"]))
     del rpc
 
+
 def node_unload_transit_xdp(ip, itf_tenant, itf_zgc):
     node_ips.pop(ip, None)
     rpc = TrnRpc(ip)
     rpc.unload_transit_xdp(ip, itf_tenant, itf_zgc)
     del rpc
 
+
+def update_existing_nodes_gw_ips_macs(node_ip : str, ips : list, macs : list  ):
+    node_to_update = Node.query.filter_by(ip_control=node_ip).first()
+    print(f'Found this node: {node_to_update.to_json()}')
+    if node_to_update is None:
+        print(f'Failed to find Node with ip_control {node_ip}!!!!!!!')
+        return
+    else:
+        for gw in node_to_update.gws:
+            print(f'Deleting this GW: {gw.to_json()}')
+            db.session.delete(gw)
+        db.session.commit()
+        for i in range(len(ips)):
+            gw_to_add = Gw(node_id=node_to_update.node_id, ip=ips[i], mac=macs[i])
+            print(f'Adding this GW: {gw_to_add.to_json()}')
+            node_to_update.gws.append(gw_to_add)
+        print(f'Update this node with following info: {node_to_update.to_json()}')
+        db.session.commit()
+        print(f'Updated Node with ip_control {node_ip} with updated gw ips and macs.')
+    return
+
+
 def set_up_node_from_hazelcast(arion_node: ArionNode):
     start_time = time.time()
     logger.debug('From Hazelcast: Start to make one node and one droplet for this node.')
     new_node = Node()
-    new_node.node_id = str(uuid.uuid4())
+    node_id = str(uuid.uuid4())
+    new_node.node_id = node_id
     # Set the node's zgc_id to active_zgc
     new_node.zgc_id = activeZgc["zgc_id"]#arion_node.zgc_id
     new_node.name = arion_node.name
@@ -207,7 +231,13 @@ def set_up_node_from_hazelcast(arion_node: ArionNode):
                     current_length_of_ip_list = len(ip_for_new_droplet)
             macs_for_new_droplet = [get_mac_from_ip(ip) for ip in ip_for_new_droplet]
 
+            # Each compute node has one droplet, so I need to update the Node with the updated IPs && MACs
             for droplet_name in modified_droplets:
+                modified_node_physical_ip = modified_droplets[droplet_name]['metadata']['labels']['node_ip']
+                modified_node_gws_ip = modified_droplets[droplet_name]['spec']['ip']
+                modified_node_gws_mac = modified_droplets[droplet_name]['spec']['mac']
+                update_existing_nodes_gw_ips_macs(modified_node_physical_ip, modified_node_gws_ip,
+                                                  modified_node_gws_mac)
                 update_droplet(modified_droplets[droplet_name])
 
             create_droplet(name='droplet-tenant-' + new_node.name.replace('_', "-").lower(), 
@@ -219,6 +249,9 @@ def set_up_node_from_hazelcast(arion_node: ArionNode):
                             zgc_id=new_node.zgc_id)
 
             logger.info('Finished updating and adding droplets.')
+            if len(new_node.gws) == 0:
+                for i in range(len(ip_for_new_droplet)):
+                    new_node.gws.append(Gw(node_id=node_id, ip=ip_for_new_droplet[i], mac=macs_for_new_droplet[i]))
         else:
             logger.error('Not enough ip to assign for the new droplet.')
     else:
@@ -226,12 +259,15 @@ def set_up_node_from_hazelcast(arion_node: ArionNode):
         zgc = Zgc.query.filter_by(zgc_id=new_node.zgc_id).first()
         if zgc is not None:
             gws = getGWsFromIpRange(zgc.ip_start, zgc.ip_end)
+            if len(new_node.gws) == 0:
+                for gw in gws:
+                    new_node.gws.append(Gw(node_id=node_id, ip=gw['ip'], mac=gw['mac']))
             create_droplet(name='droplet-tenant-' + new_node.name.replace('_', "-").lower(), 
-                            ip=[gw['ip'] for gw in gws], 
+                            ip=[gw['ip'] for gw in gws],
                             mac=[gw['mac'] for gw in gws],
                             itf=new_node.inf_tenant,
                             node_ip= new_node.ip_control,
-                            network='tenant', 
+                            network='tenant',
                             zgc_id=new_node.zgc_id)
         else:
             logger.error("There's no zgc with zgc_id: {} in the database!".format(new_node.zgc_id))
@@ -250,7 +286,8 @@ def all_nodes():
         logger.debug('Start to make one node and one droplet for this node.')
         start_time = time.time()
         post_data = request.get_json()
-        post_data['node_id'] = str(uuid.uuid4())
+        node_id = str(uuid.uuid4())
+        post_data['node_id'] = node_id
 
         node_load_transit_xdp(post_data['ip_control'], post_data['inf_tenant'], post_data['inf_zgc'])
 
@@ -317,16 +354,25 @@ def all_nodes():
                         current_length_of_ip_list = len(ip_for_new_droplet)
                 macs_for_new_droplet = [get_mac_from_ip(ip) for ip in ip_for_new_droplet]
 
+                # Each compute node has one droplet, so I need to update the Node with the updated IPs && MACs
                 for droplet_name in modified_droplets:
+                    modified_node_physical_ip = modified_droplets[droplet_name]['metadata']['labels']['node_ip']
+                    modified_node_gws_ip = modified_droplets[droplet_name]['spec']['ip']
+                    modified_node_gws_mac = modified_droplets[droplet_name]['spec']['mac']
+                    update_existing_nodes_gw_ips_macs(modified_node_physical_ip, modified_node_gws_ip, modified_node_gws_mac)
                     update_droplet(modified_droplets[droplet_name])
 
                 create_droplet(name='droplet-tenant-' + post_data['name'].replace('_', "-").lower(), 
                                ip=ip_for_new_droplet, 
                                mac=macs_for_new_droplet,
                                itf=post_data['inf_tenant'], 
-                               node_ip= post_data['ip_control'],
+                               node_ip=post_data['ip_control'],
                                network='tenant', 
                                zgc_id=post_data['zgc_id'])
+                if 'gws' not in post_data:
+                    post_data['gws'] = list()
+                for i in range(len(ip_for_new_droplet)):
+                    post_data['gws'].append(Gw(node_id=node_id, ip=ip_for_new_droplet[i], mac=macs_for_new_droplet[i]))
 
                 logger.info('Finished updating and adding droplets.')
             else:
@@ -336,11 +382,15 @@ def all_nodes():
             zgc = Zgc.query.filter_by(zgc_id=post_data['zgc_id']).first()
             if zgc is not None:
                 gws = getGWsFromIpRange(zgc.ip_start, zgc.ip_end)
-                create_droplet(name='droplet-tenant-' + post_data['name'].replace('_', "-").lower(), 
-                               ip=[gw['ip'] for gw in gws], 
+                if 'gws' not in post_data:
+                    post_data['gws'] = list()
+                for gw in gws:
+                    post_data['gws'].append(Gw(node_id=node_id, ip=gw['ip'], mac=gw['mac']))
+                create_droplet(name='droplet-tenant-' + post_data['name'].replace('_', "-").lower(),
+                               ip=[gw['ip'] for gw in gws],
                                mac=[gw['mac'] for gw in gws],
                                itf=post_data['inf_tenant'],
-                               node_ip= post_data['ip_control'],
+                               node_ip=post_data['ip_control'],
                                network='tenant', 
                                zgc_id=post_data['zgc_id'])
             else:
@@ -351,6 +401,8 @@ def all_nodes():
         db.session.commit()
 
         response_object = post_data
+        if 'gws' in response_object:
+            response_object['gws'] = [gw.to_json() for gw in response_object['gws']]
         end_time = time.time()
         logger.debug(f'Arion took {end_time - start_time} seconds to make a node and its two droplets.')
         status_code = 201

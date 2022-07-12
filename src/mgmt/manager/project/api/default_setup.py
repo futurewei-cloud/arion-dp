@@ -114,7 +114,7 @@ def connect_to_hazelcast(hazelcast_ip_port):
     vpc_map = hazelcast_client.get_map('com.futurewei.common.model.VPC')
     
     global routing_rule_map
-    routing_rule_map = hazelcast_client.get_map('com.futurewei.common.model.RoutingRule')
+    routing_rule_map = hazelcast_client.get_map('com.futurewei.common.model.NeighborRule')
     
     def added(event):
         number_of_entries_in_map = len(routing_rule_map.entry_set().result())

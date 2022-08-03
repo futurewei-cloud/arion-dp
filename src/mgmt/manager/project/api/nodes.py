@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2020 The Authors.
+# Copyright (c) 2020-2022 The Authors.
 #
 # Authors: Bin Liang <@liangbin>
+#          Wei Yue   <@w-yue>
 #
 # Summary: Arion Network node table for NBI API
 #
@@ -404,7 +405,7 @@ def all_nodes():
         if 'gws' in response_object:
             response_object['gws'] = [gw.to_json() for gw in response_object['gws']]
         end_time = time.time()
-        logger.debug(f'Arion took {end_time - start_time} seconds to make a node and its two droplets.')
+        logger.debug(f'Arion took {end_time - start_time} seconds to make a node and its droplets.')
         status_code = 201
     else:
         response_object = [node.to_json() for node in Node.query.all()]

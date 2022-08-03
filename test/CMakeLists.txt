@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 #
-# Copyright (c) 2020 The Authors.
+# Copyright (c) 2020-2022 The Authors.
 # Authors: Bin Liang         <@liangbin>
 #
 # Summary: test level CMake listfile for arion project

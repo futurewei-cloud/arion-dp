@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2020 The Authors.
+# Copyright (c) 2020-2022 The Authors.
 
 # Authors: Sherif Abdelwahab <@zasherif>
 #          Phu Tran          <@phudtran>
-#          Bin Liang         <@liangbin>
+#          Wei Yue           <@w-yue>
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2022 The Authors.
 #
-# Authors: io Zhu <@zzxgzgz>
+# Authors: Rio Zhu <@zzxgzgz>
 #
 # Summary: default setup API
 #

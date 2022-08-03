@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT
 #
-# Copyright (c) 2022 The Authors.
-# Authors: Wei Yue         <@w-yue>
+# Copyright (c) 2020-2022 The Authors.
+# Authors: Bin Liang      <@liangbin>
+#          Wei Yue         <@w-yue>
 # 
-# Summary: cli CMake listfile for arion project
+# Summary: cli CMake listfile for Arion DP project
 
 message("Processing src/cli/CMakeList.txt")
 
@@ -19,6 +20,7 @@ set_target_properties(transit PROPERTIES
 
 file(GLOB TEST_SOURCE ${CMAKE_CURRENT_LIST_DIR}/test/*.c ${CMAKE_CURRENT_LIST_DIR}/*.c)
 list(REMOVE_ITEM TEST_SOURCE ${CMAKE_CURRENT_LIST_DIR}/trn_cli.c)
+# addback1 --wyue 07062022
 set(CLI_MOCKS "-Wl,--wrap=load_transit_xdp_1 \
     -Wl,--wrap=unload_transit_xdp_1 \
     -Wl,--wrap=update_ep_1 \

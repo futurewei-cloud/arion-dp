@@ -277,8 +277,8 @@ def generate_ports(ports_to_create, aca_nodes_data):
 
 def run():
     # rebuild zgc nodes kvm and cleanup zeta data
-    subprocess.call(
-        ['/home/ubuntu/work/deploy/arion_deploy.sh', '-d',  'lab'])
+    # subprocess.call(
+    #   ['/home/user/arion-dp/deploy/arion_deploy.sh', '-d',  'lab'])
 
     port_api_upper_limit = 1000
     time_interval_between_calls_in_seconds = 10
@@ -349,7 +349,7 @@ def run():
                                         port_api_upper_limit, time_interval_between_calls_in_seconds, ports_to_send_to_aca, use_preferred_gw)
 
     if json_content_for_aca is False:
-        print('Failed to talk to Zeta, pseudo controller will exit now.')
+        print('Failed to talk to Arion, pseudo controller will exit now.')
 
     for compute_node in aca_nodes_data:
         if 'port_ips' in compute_node:

@@ -2,8 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 #
-# Copyright (c) 2022 The Authors.
-# Authors: Wei Yue  <@w-yue>
+# Copyright (c) 2020-2022 The Authors.
+# Authors:     Bin Liang    <@liangbin>
+# Modified by: Wei Yue      <@w-yue>
 #
 # Summary: Rebuild and tag Arion service images for deployment
 #

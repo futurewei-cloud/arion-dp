@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 #
-# Copyright (c) 2022 The Authors.
-# Authors: Wei Yue    <@w-yue>
+# Copyright (c) 2020-2022 The Authors.
+# Authors:     Bin Liang     <@liangbin>
+# Modified by: Wei Yue       <@w-yue>
 #
 # Summary: Customize arion_dev container for local build environments
 

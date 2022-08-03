@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT
 #
-# Copyright (c) 2020 The Authors.
-# Authors: Bin Liang         <@liangbin>
+# Copyright (c) 2020-2022 The Authors.
+# Authors: Bin Liang       <@liangbin>
+#          Wei Yue         <@w-yue>
 #
-# Summary: xdp CMake listfile for arion project
+# Summary: xdp CMake listfile for Arion DP project
 
 message("Processing src/xdp/CMakeList.txt")
 
@@ -14,7 +15,6 @@ set(CLANG_FLAGS -I.
     -I${CMAKE_SOURCE_DIR}/src
     -I${CMAKE_SOURCE_DIR}/src/include
     -Wno-unused-value
-    -Wno-pointer-sign
     -Wno-compare-distinct-pointer-types
     -Wno-gnu-variable-sized-type-not-at-end
     -Wno-address-of-packed-member
@@ -23,7 +23,7 @@ set(CLANG_FLAGS -I.
     -O3
     -emit-llvm
     -c)
-set(CLANG_FLAGS_DEBUG -DDEBUG -D__KERNEL__ -g -D__BPF_TRACING__ ${CLANG_FLAGS})
+set(CLANG_FLAGS_DEBUG -DDEBUG -D__KERNEL__ -g -c -O2 -D__BPF_TRACING__ ${CLANG_FLAGS})
 
 set(XDP_READY ${CMAKE_BINARY_DIR}/xdp.ready)
 set(OBJDIR ${CMAKE_BINARY_DIR}/src/xdp)

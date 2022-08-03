@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT
 #
-# Copyright (c) 2022 The Authors.
-# Authors: Wei Yue         <@w-yue>
+# Copyright (c) 2020-2022 The Authors.
+# Authors:      Bin Liang   <@liangbin>
+# Modified By:  Wei Yue     <@w-yue>
 #
-# Summary: Top level CMake listfile for arion project
+# Summary: Top level CMake listfile for Arion DP project
 
 # ----------------------------------------------------------------------------
 # Specify the version being used as well as the language

@@ -3,6 +3,7 @@
  * @file trn_cli.h
  * @author Sherif Abdelwahab (@zasherif)
  *         Phu Tran          (@phudtran)
+ * 		   Wei Yue           (@w-yue)
  *
  * @brief Defines methods and data structs used by the CLI frontend
  *
@@ -38,7 +39,6 @@
 #include "trn_log.h"
 #include "trn_rpc.h"
 
-#define turnOn 0
 struct cli_conf_data_t {
 	char *conf_str; // 10K conf file is too much anyway
 	char intf[TRAN_MAX_ITF_SIZE]; // Interface name is 20 char including \0

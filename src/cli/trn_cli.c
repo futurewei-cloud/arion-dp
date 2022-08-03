@@ -3,6 +3,7 @@
  * @file trn_cli.c
  * @author Sherif Abdelwahab (@zasherif)
  *         Phu Tran          (@phudtran)
+ *         Wei Yue           (@w-yue)
  *
  * @brief Transit frontend
  *

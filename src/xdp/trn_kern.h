@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+// The following code is originally derived from Zeta project
+
 /**
- * @file transit_kern.h
+ * @file trn_kern.h
  * @author Sherif Abdelwahab (@zasherif)
+ *         Wei Yue           (@w-yue)
  *
  * @brief Helper functions, macros and data structures.
  *
- * @copyright Copyright (c) 2019 The Authors.
+ * @copyright Copyright (c) 2019-2022 The Authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -64,6 +67,8 @@
 #ifndef __inline
 #define __inline inline __attribute__((always_inline))
 #endif
+
+const int appendTail = 0;
 
 struct trn_gnv_scaled_ep_data {
 	__u8 msg_type;
@@ -191,6 +196,13 @@ struct transit_packet {
 	// TODO: Inner UDP or TCP
 } __attribute__((packed, aligned(8)));
 
+struct xdp_hints_src {
+	__u16 flags;   //
+	__u32 vni;
+	__u32 saddr;
+	unsigned char h_source[6];
+} __attribute__((aligned(4))) __attribute__((packed));
+
 __ALWAYS_INLINE__
 static inline __u32 trn_get_inner_packet_hash(struct transit_packet *pkt)
 {
@@ -198,11 +210,31 @@ static inline __u32 trn_get_inner_packet_hash(struct transit_packet *pkt)
 	return jhash_2words(pkt->inner_ip->saddr, 0, INIT_JHASH_SEED);
 }
 
+// wyue -- need double check
+__ALWAYS_INLINE__
+static inline __u8 trn_append_src(void *data, void *data_end,
+							__u16 len, __u32 vni) {
+	__u32 *addon = data + len;
+
+	if (data +1 > data_end) return -1;
+	if ((void *)addon + sizeof(__be32) > data_end) return -1;
+	if ((void *)addon < data) return -1;
+
+	addon[0] = vni;
+	return 0; 
+}
+
 __ALWAYS_INLINE__
 static __be32 trn_get_vni(const __u8 *vni)
 {
 	/* Big endian! */
 	return (vni[0] << 16) | (vni[1] << 8) | vni[2];
+}
+
+__ALWAYS_INLINE__
+static void trn_mod_vni(struct vxlanhdr *vxlan) {
+	// vxlan->rsvd3[0] = 0x80; // test
+	// vxlan->rsvd1 |= 0x1; // Test
 }
 
 static void trn_set_vni(__be32 src, __u8 *vni)
@@ -299,6 +331,59 @@ static inline void trn_swap_src_dst_mac(void *data)
 	p[3] = tmp[0];
 	p[4] = tmp[1];
 	p[5] = tmp[2];
+}
+
+__ALWAYS_INLINE__
+static inline void trn_set_ip_len(void *data, void *data_end, __be16 len)
+{
+	int off = offsetof(struct iphdr, tot_len);
+	__u16 *tot_len = data + off;
+	if ((void *)tot_len + sizeof(__be16) > data_end)
+		return;
+
+	*tot_len = bpf_htons(len);
+}
+
+__ALWAYS_INLINE__
+static inline void trn_set_udp_len(void *data, void *data_end, __be16 len)
+{
+	int off = offsetof(struct udphdr, len);
+	__u16 *nlen = data + off;
+	if ((void *)nlen + sizeof(__be16) > data_end)
+		return;
+
+	*nlen = bpf_htons(len);
+}
+
+__ALWAYS_INLINE__
+static inline void trn_set_len_csum(struct iphdr *ip, __u16 len, void *data_end)
+{
+	__u16 ip_tot_len = bpf_ntohs(ip->tot_len); //+ len;
+	trn_set_ip_len(ip, data_end, ip_tot_len+len);
+
+	__u64 cs = ip->check;
+	//borrow this function since it's also __u16
+	trn_update_l4_csum_port(&cs, ip_tot_len, ip_tot_len+len);
+	ip->check = cs;
+
+	bpf_debug("XXXXX Modified IP pkt len, src: 0x%x, len: 0x%x, csum: 0x%x\n",
+		  ip->saddr, ip->tot_len, ip->check);
+}
+
+__ALWAYS_INLINE__
+static inline void trn_set_udp_len_csum(struct udphdr *udp, __u16 len, void *data_end)
+{
+	__u16 udp_tot_len = bpf_ntohs(udp->len); //+ len;
+	trn_set_udp_len(udp, data_end, udp_tot_len+len);
+
+	// do we need to update checksum? --wyue
+	//__sum16 cs = udp->check;
+	//borrow this function since it's also __u16
+	//trn_update_l4_csum_port(&cs, udp_tot_len, udp_tot_len+len);
+	//udp->check = cs;
+
+	bpf_debug("XXXXX Modified UDP pkt len, src: 0x%x, len: 0x%x, csum: 0x%x\n",
+		  udp->source, udp->len, udp->check);
 }
 
 __ALWAYS_INLINE__

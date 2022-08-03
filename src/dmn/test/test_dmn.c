@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
  * @file test_dmn.c
- * @author Sherif Abdelwahab (@zasherif)
- *         Phu Tran          (@phudtran)
+ * @authors Wei Yue           (@w-yue)
  *
  * @brief dmn unit tests
  *
- * @copyright Copyright (c) 2019 The Authors.
+ * @copyright Copyright (c) 2022 The Authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -57,9 +56,11 @@ int __wrap_trn_transit_map_get_fd(char *map)
 	return 1;
 }
 
-struct bpf_object *__wrap_bpf_object__open_xattr(struct bpf_object_open_attr *attr)
+struct bpf_object *__wrap_bpf_object__open_file(const char *path,
+				const struct bpf_object_open_opts *opts)
 {
-	UNUSED(attr);
+	UNUSED(path);
+	UNUSED(opts);
 	return (struct bpf_object *)1;
 }
 
@@ -182,11 +183,12 @@ int __wrap_bpf_prog_load_xattr(const struct bpf_prog_load_attr *attr,
 	return 0;
 }
 
-int __wrap_bpf_set_link_xdp_fd(int ifindex, int fd, __u32 flags)
+int __wrap_bpf_xdp_attach(int ifindex, int fd, __u32 flags, const struct bpf_xdp_attach_opts *opts)
 {
 	UNUSED(ifindex);
 	UNUSED(fd);
 	UNUSED(flags);
+	UNUSED(opts);
 	return 0;
 }
 
@@ -235,12 +237,12 @@ int __wrap_bpf_map__unpin(struct bpf_map *map, const char *path)
 	return 0;
 }
 
-int __wrap_bpf_get_link_xdp_id(int ifindex, __u32 *prog_id, __u32 flags)
+int __wrap_bpf_xdp_query_id(int ifindex, int flags, unsigned int *prog_id)
 {
 	UNUSED(ifindex);
-	UNUSED(prog_id);
 	UNUSED(flags);
-	return 0;
+	UNUSED(prog_id);
+	return 0;	
 }
 
 unsigned int __wrap_if_nametoindex(const char *ifname)
@@ -308,14 +310,22 @@ int __wrap_bpf_program__set_xdp(struct bpf_program *prog)
 	return 0;
 }
 
-struct bpf_program *__wrap_bpf_program__next(struct bpf_program *prev,
-					     const struct bpf_object *obj)
+struct bpf_program *__wrap_bpf_object__next_program(const struct bpf_object *obj,
+						struct bpf_program *prev)
 {
 	UNUSED(obj);
 	if (prev == NULL) {
 		return (struct bpf_program *)1;
 	} else
 		return NULL;
+}
+
+struct bpf_map *__wrap_bpf_object__next_map(const struct bpf_object *obj,
+						const struct bpf_map *map)
+{
+	UNUSED(obj);
+	UNUSED(map);
+	return (struct bpf_map *)1;
 }
 
 void __wrap_bpf_object__close(struct bpf_object *object)
@@ -518,8 +528,8 @@ int main()
 {
 	const struct CMUnitTest tests[] = {
 		cmocka_unit_test(test_update_ep_1_svc),
-		cmocka_unit_test(test_get_ep_1_svc),
-		cmocka_unit_test(test_delete_ep_1_svc)
+		cmocka_unit_test(test_delete_ep_1_svc),
+		cmocka_unit_test(test_get_ep_1_svc)
 	};
 
 	int result = cmocka_run_group_tests(tests, groupSetup, groupTeardown);

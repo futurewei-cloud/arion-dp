@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 #
-# Copyright (c) 2020-2022 The Authors.
-# Authors: Bin Liang  <@liangbin>
-#          Wei Yue    <@w-yue>
+# Copyright (c) 2022 The Authors.
+# Authors:     Bin Liang    <@liangbin>
+# Modified by: Wei Yue      <@w-yue>
 #
 # Summary: script to setup k8s cluster and deploy Arion services
 #

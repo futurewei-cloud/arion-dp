@@ -4,6 +4,7 @@
 # Copyright (c) 2022 The Authors.
 
 # Authors: Phu Tran          <@phudtran>
+#          Bin Liang         <@liangbin>
 #          Wei Yue           <@w-yue>
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy

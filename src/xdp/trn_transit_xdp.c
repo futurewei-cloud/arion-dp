@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+// The base of the following code is derived from Zeta project
 /**
  * @file trn_transit_xdp.c
  * @author Sherif Abdelwahab (@zasherif)
@@ -48,6 +49,9 @@
 #include "trn_kern.h"
 
 int _version SEC("version") = 1;
+
+int pkt_not_add_tail = 1;
+int pkt_not_add_head = 1;
 
 static __inline int trn_rewrite_remote_mac(struct transit_packet *pkt)
 {
@@ -179,7 +183,6 @@ static __inline int trn_process_inner_ip(struct transit_packet *pkt)
 		flow->dport = pkt->inner_udp->dest;
 	}
 
-/* get rid of this direct path logic for now */
 #if turnOn
 	/* Generate Direct Path request */
 	pkt->fctx.opcode = bpf_htonl(XDP_FLOW_OP_ENCAP);
@@ -218,6 +221,36 @@ static __inline int trn_process_inner_ip(struct transit_packet *pkt)
 	trn_set_src_dst_ip_csum(pkt->ip, pkt->ip->daddr, ep->hip, pkt->data_end);
 	trn_set_src_mac(pkt->eth, pkt->eth->h_dest);
 	trn_set_dst_mac(pkt->eth, ep->hmac);
+
+	if (appendTail && flow->protocol != IPPROTO_ICMP) {
+		struct xdp_hints_src *h_src;
+		__u8 offset = sizeof(*h_src);
+
+		__u16 ip_tot_len = bpf_ntohs(pkt->ip->tot_len);
+
+		if (ip_tot_len < 2) {
+			return XDP_DROP;
+		}
+
+		ip_tot_len &= 0xFFF; // Max 4095
+		if ((void *)pkt->data + ip_tot_len + offset + 14 > pkt->data_end) {  // 14 is the size of etherhdr
+			return XDP_ABORTED;
+		}
+
+		h_src = (void *)pkt->data + ip_tot_len + 14;
+		h_src->saddr = pkt->ip->saddr;
+		h_src->vni = pkt->vni;
+		h_src->flags = 0x5354;  //
+		h_src->h_source[0] = pkt->eth->h_source[0];
+		h_src->h_source[1] = pkt->eth->h_source[1];
+		h_src->h_source[2] = pkt->eth->h_source[2];
+		h_src->h_source[3] = pkt->eth->h_source[3];
+		h_src->h_source[4] = pkt->eth->h_source[4];
+		h_src->h_source[5] = pkt->eth->h_source[5];
+		
+		bpf_debug("[Transit:%d] XXXXX TX: len=%d -- %d.\n", 
+				__LINE__, pkt->data_end - pkt->data, ip_tot_len);
+	}
 
 	bpf_debug("[Transit:%d] XXXX TX: Forward IP pkt from vni:%d ip:0x%x\n",
 		pkt->itf_idx, pkt->vni, bpf_ntohl(pkt->inner_ip->saddr));
@@ -507,7 +540,6 @@ static __inline int trn_process_eth(struct transit_packet *pkt)
 
 	// there's some logic error in assigning entrances for each itf
 	for (i = 0; i < pkt->itf->num_entrances && i < TRAN_MAX_ZGC_ENTRANCES; i++) {
-	//for (i = 0; i < 1; i++) {  // ugly hack test
 		if (trn_is_mac_equal(pkt->eth->h_dest, pkt->itf->entrances[i].mac)) {
 
 			bpf_debug("[Transit:%d] XXX received packet at mac:%x..%x\n",
@@ -527,6 +559,21 @@ static __inline int trn_process_eth(struct transit_packet *pkt)
 SEC("transit")
 int _transit(struct xdp_md *ctx)
 {
+
+	if (appendTail) {
+		__u8 apendlen = sizeof(struct xdp_hints_src);
+		bpf_debug("[Transit::%d] XXXX Tx: addr: %x, len=%d\n", 
+				__LINE__, ctx->data, ctx->data_end - ctx->data);
+		pkt_not_add_tail = bpf_xdp_adjust_tail(ctx, sizeof(struct xdp_hints_src));
+		if (pkt_not_add_tail) {
+			bpf_debug("[Transit:%d] XXXX TX: Appending IP pkt failed.\n", __LINE__);
+		} else {
+			__u16 len = ctx->data_end - ctx->data;
+			bpf_debug("[Transit:%d] XXXX TX: Appending IP pkt succeeded(len=%d -- %d).\n", 
+				__LINE__, len, apendlen);
+		}
+	}
+
 	struct transit_packet pkt;
 	pkt.data = (void *)(long)ctx->data;
 	pkt.data_end = (void *)(long)ctx->data_end;

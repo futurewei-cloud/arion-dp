@@ -1,8 +1,9 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2020 The Authors.
+# Copyright (c) 2020-2022 The Authors.
 #
 # Authors: Bin Liang <@liangbin>
+#          Wei Yue   <@w-yue>
 #
 # Summary: arion-manager container entry point
 #

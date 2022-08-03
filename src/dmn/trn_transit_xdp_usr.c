@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+// The following code is originally derived from Zeta project
 /**
- * @author Sherif Abdelwahab (@zasherif)
- *         Phu Tran          (@phudtran)
+ * @author Wei Yue           (@w-yue)
  *
  * @brief User space APIs to program transit xdp program (switches and
  * routers)
  *
- * @copyright Copyright (c) 2019 The Authors.
+ * @copyright Copyright (c) 2022 The Authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -209,7 +209,7 @@ static int trn_transit_xdp_post_load(trn_prog_t *prog, int prog_idx)
 
 	obj = prog->obj;
 
-	first_prog = bpf_program__next(NULL, obj);
+	first_prog = bpf_object__next_program(obj, NULL);
 	if (!first_prog) {
 		TRN_LOG_ERROR("Failed to find XDP program in object file: %s\n",
 				bpf_object__name(obj));
@@ -343,7 +343,7 @@ static int trn_prog_load(trn_prog_t *prog, int prog_idx)
 	TRN_LOG_INFO("trn_prog_load %s\n", open_attr.file);
 
 	/* Step 1: Open bpf object to customize bpfmap sharing */
-	prog->obj = bpf_object__open_xattr(&open_attr);
+	prog->obj = bpf_object__open_file(open_attr.file, NULL);
 	if (IS_ERR_OR_NULL(prog->obj)) {
 		TRN_LOG_ERROR("Error openning XDP object for %s\n", open_attr.file);
 		return 1;
@@ -545,7 +545,8 @@ int trn_transit_xdp_load(char **interfaces, unsigned short ibo_port, bool debug)
 
 	memset(md, 0, sizeof(user_metadata_t));
 
-	// BIN_FIXME: consider NATIVE mode later
+	// try XDP_FLAGS_DRV_MODE?  --wyue
+	//md->xdp_flags = debug? XDP_FLAGS_SKB_MODE:XDP_FLAGS_DRV_MODE;
 	md->xdp_flags = XDP_FLAGS_SKB_MODE;
 	md->prog_tbl = debug?trn_prog_dbg_tbl:trn_prog_tbl;
 
@@ -595,8 +596,8 @@ int trn_transit_xdp_load(char **interfaces, unsigned short ibo_port, bool debug)
 		memset(&info, 0, info_len);
 
 		/* Attach main transit XDP program to interface */
-		if (bpf_set_link_xdp_fd(md->objs[i].eth.iface_index,
-			md->objs[i].xdp.prog_fd, md->xdp_flags) < 0) {
+		if (bpf_xdp_attach(md->objs[i].eth.iface_index,
+			md->objs[i].xdp.prog_fd, md->xdp_flags, NULL) < 0) {
 			TRN_LOG_ERROR("Failed to attach XDP program %s to %s - %s\n",
 				md->prog_tbl[TRAN_TRANSIT_PROG].prog_path, interfaces[i], strerror(errno));
 			goto cleanup;
@@ -637,21 +638,21 @@ int trn_transit_xdp_unload(char **interfaces)
 	for (i = 0; i < TRAN_ITF_MAP_MAX; i++) {
 		__u32 link_prog_id = 0;
 
-		if (bpf_get_link_xdp_id(md->objs[i].eth.iface_index, &link_prog_id, md->xdp_flags)) {
+		if (bpf_xdp_query_id(md->objs[i].eth.iface_index, md->xdp_flags, &link_prog_id)) {
 			TRN_LOG_ERROR("Failed to get XDP prog_id from %s", interfaces[i]);
 			return 1;
 		}
 
 		if (md->objs[i].xdp.prog_id == link_prog_id) {
-			bpf_set_link_xdp_fd(md->objs[i].eth.iface_index, -1, md->xdp_flags);
+			bpf_xdp_attach(md->objs[i].eth.iface_index, -1, md->xdp_flags, NULL);
 		} else if (!link_prog_id) {
 			TRN_LOG_WARN("couldn't find a prog id on %s\n", interfaces[i]);
 		} else {
 			TRN_LOG_WARN("program on %s changed, not removing\n", interfaces[i]);
 		}
 
-		if (bpf_set_link_xdp_fd(md->objs[i].eth.iface_index,
-			md->objs[i].xdp.prog_fd, md->xdp_flags) < 0) {
+		if ( bpf_xdp_attach(md->objs[i].eth.iface_index,
+			md->objs[i].xdp.prog_fd, md->xdp_flags, NULL) < 0) {
 			TRN_LOG_ERROR("Failed to attach XDP program %s to %s - %s\n",
 				md->prog_tbl[TRAN_TRANSIT_PROG].prog_path, interfaces[i], strerror(errno));
 			return 1;

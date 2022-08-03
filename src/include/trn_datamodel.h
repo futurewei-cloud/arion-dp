@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /**
- * @file datamodel.h
- * @author Sherif Abdelwahab (@zasherif)
- *         Wei Yue           (@w-yue)
+ * 
+ * @file trn_datamodel.h
+ * @author Sherif Adelwahab     (@zasherif)
+ *         Wei Yue              (@w-yue)
  *
  * @brief Data models between user and kernel space. data propagated
  * from control-plane through transitd.
@@ -47,7 +48,7 @@
 #define TRAN_MAX_CHAIN 128
 
 /* Set max total number of endpoints */
-#define TRAN_MAX_NEP 128*1024
+#define TRAN_MAX_NEP 1024*1024*4
 /* Set max number of host IPs a (scaled) endpoint can be mapped to */
 #define TRAN_MAX_REMOTES 64
 #define TRAN_MAX_ITF 128

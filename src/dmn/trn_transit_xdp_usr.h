@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+// The following code is originally derived from zeta project
 /**
  * @file trn_xdp_usr.h
- * @author Sherif Abdelwahab (@zasherif)
- *         Phu Tran          (@phudtran)
+ * @author Wei Yue           (@w-yue)
  *
  * @brief User space APIs and data structures to program transit
  * xdp program.
  *
- * @copyright Copyright (c) 2019 The Authors.
+ * @copyright Copyright (c) 2022 The Authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +49,6 @@
 #include "extern/cJSON.h"
 
 #define turnOn 0
-
 typedef struct {
 	int prog_id;          // definition in trn_xdp_prog_id_t
 	char *prog_path;      // full path of xdp program

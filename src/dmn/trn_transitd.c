@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+// The following code is based on code from Zeta project
+
 /**
- * @author Sherif Abdelwahab (@zasherif)
+ * @authors Wei Yue           (@w-yue)
  *
  * @brief Transit daemon
  *
- * @copyright Copyright (c) 2019 The Authors.
+ * @copyright Copyright (c) 2022 The Authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

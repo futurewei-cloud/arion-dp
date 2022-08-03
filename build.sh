@@ -2,8 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 #
-# Copyright (c) 2020 The Authors.
-# Authors: Bin Liang         <@liangbin>
+# Copyright (c) 2020-2022 The Authors.
+# Authors:     Bin Liang       <@liangbin>
+# Modified by: Wei Yue         <@w-yue>
 #
 # Summary: Top level script to build and unit test arion project in container
 #

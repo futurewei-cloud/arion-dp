@@ -24,13 +24,12 @@ launched
 
 # Physical node instances
 [launched]
-node-0 ansible_host=172.16.1.35
-node-1 ansible_host=172.16.1.190
-node-2 ansible_host=172.16.1.191
-node-3 ansible_host=172.16.1.192
-node-4 ansible_host=172.16.1.193
-node-5 ansible_host=172.16.1.194
-node-6 ansible_host=172.16.1.195
-node-7 ansible_host=172.16.1.87
-node-8 ansible_host=172.16.1.88
-#node-9 ansible_host=172.16.1.83
+node-0 ansible_host=10.222.0.100
+node-1 ansible_host=10.222.0.111
+node-2 ansible_host=10.222.0.112
+node-3 ansible_host=10.222.0.113
+node-4 ansible_host=10.222.0.114
+node-5 ansible_host=10.222.0.115
+node-6 ansible_host=10.222.0.116
+node-7 ansible_host=10.222.0.117
+node-8 ansible_host=10.222.0.118

@@ -232,7 +232,7 @@ def set_up_node_from_hazelcast(arion_node: ArionNode):
                     current_length_of_ip_list = len(ip_for_new_droplet)
             macs_for_new_droplet = [get_mac_from_ip(ip) for ip in ip_for_new_droplet]
 
-            # Each compute node has one droplet, so I need to update the Node with the updated IPs && MACs
+            # Each wing node has one droplet, so I need to update the Node with the updated IPs && MACs
             for droplet_name in modified_droplets:
                 modified_node_physical_ip = modified_droplets[droplet_name]['metadata']['labels']['node_ip']
                 modified_node_gws_ip = modified_droplets[droplet_name]['spec']['ip']
@@ -355,7 +355,7 @@ def all_nodes():
                         current_length_of_ip_list = len(ip_for_new_droplet)
                 macs_for_new_droplet = [get_mac_from_ip(ip) for ip in ip_for_new_droplet]
 
-                # Each compute node has one droplet, so I need to update the Node with the updated IPs && MACs
+                # Each wing node has one droplet, so I need to update the Node with the updated IPs && MACs
                 for droplet_name in modified_droplets:
                     modified_node_physical_ip = modified_droplets[droplet_name]['metadata']['labels']['node_ip']
                     modified_node_gws_ip = modified_droplets[droplet_name]['spec']['ip']

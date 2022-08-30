@@ -207,7 +207,7 @@ def set_up_node_from_hazelcast(arion_node: ArionNode):
             # sort these droplets in descending order, so droplet with the most IPs will be in the front.
             droplet_that_can_give_ip_mac.sort(key=lambda x : len(x['spec']['ip']), reverse=True)
             # only one IP/mac for other droplets
-            while len(ip_for_new_droplet) < 1:
+            while len(ip_for_new_droplet) < number_of_ip_new_droplet_gets:
                 for droplet in droplet_that_can_give_ip_mac:
                     droplet_spec = droplet['spec']
                     droplet_ip_list = droplet_spec['ip']
@@ -330,7 +330,7 @@ def all_nodes():
                 # sort these droplets in descending order, so droplet with the most IPs will be in the front.
                 droplet_that_can_give_ip_mac.sort(key=lambda x : len(x['spec']['ip']), reverse=True)
                 # only one IP/mac for other droplets
-                while len(ip_for_new_droplet) < 1:
+                while len(ip_for_new_droplet) < number_of_ip_new_droplet_gets:
                     for droplet in droplet_that_can_give_ip_mac:
                         droplet_spec = droplet['spec']
                         droplet_ip_list = droplet_spec['ip']

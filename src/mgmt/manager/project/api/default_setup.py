@@ -52,6 +52,9 @@ def setup():
 
     gateway_list = None
 
+    use_arion_agent_parameter = request.args.get("use_arion_agent", default=None, type=bool)
+
+
     get_data_start_time = time.time()
     connect_to_hazelcast(hazelcast_ip_port)    
 
@@ -84,13 +87,16 @@ def setup():
         response_object = vpc_response["gws"]
         routing_rules_in_current_vpc = []
         time.sleep(10)
-        for routing_rule_key, routing_rule_value  in routing_rule_set:
-            rule: RoutingRule = routing_rule_value
-            if rule.vni == current_vpc.vni:
-                routing_rules_in_current_vpc.append(rule)
-        set_up_ports_in_the_same_vpc_from_hazelcast(routing_rules_in_current_vpc, current_vpc.vpc_id)
-        time.sleep(10)
-        
+        if use_arion_agent_parameter == True:
+            for routing_rule_key, routing_rule_value  in routing_rule_set:
+                rule: RoutingRule = routing_rule_value
+                if rule.vni == current_vpc.vni:
+                    routing_rules_in_current_vpc.append(rule)
+            set_up_ports_in_the_same_vpc_from_hazelcast(routing_rules_in_current_vpc, current_vpc.vpc_id)
+            time.sleep(10)
+        else:
+            print(f'user_arion_agent={use_arion_agent_parameter}, thus not setting up ports in this call.')
+
     
     setup_finish_time = time.time()
     

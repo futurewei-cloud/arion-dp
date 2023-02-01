@@ -34,6 +34,7 @@
 #include <linux/if.h>
 #include <linux/if_packet.h>
 #include "extern/linux/err.h"
+
 #include "trn_transitd.h"
 
 static trn_xdp_prog_t trn_prog_tbl[TRAN_MAX_PROG] = {
@@ -63,13 +64,19 @@ static char * pin_path = "/sys/fs/bpf";
 static trn_xdp_map_t trn_xdp_bpfmaps[] = {
 	{"jmp_table", true, -1, NULL},
 	{"endpoints_map", true, -1, NULL},
-#if turnOn
-	{"hosted_eps_if", true, -1, NULL},
-#endif
 	{"if_config_map", true, -1, NULL},
 	{"interfaces_map", true, -1, NULL},
     {"xsks_map", true, -1,NULL},
+#if connTrack
+	{"contrack_map", true, -1, NULL},
+#endif
+#if sgSupport
+	{"sg_cidr_map", true, -1, NULL},
+	{"security_group_map", true, -1, NULL},
+	{"port_range_map", true, -1, NULL},
+#endif
 #if turnOn
+	{"hosted_eps_if", true, -1, NULL},
 	{"oam_queue_map", true, -1, NULL},
 	{"fwd_flow_cache", true, -1, NULL},
 	{"rev_flow_cache", true, -1, NULL},
@@ -373,6 +380,243 @@ cleanup:
 	prog->obj = NULL;
 	return 1;
 }
+
+#if sgSupport
+int trn_update_sg_cidr_get_ctx(void)
+{
+	int fd;
+
+	fd = trn_transit_map_get_fd("sg_cidr_map");
+	if (fd < 0) {
+		TRN_LOG_ERROR("Failed to get sg_cidr_map fd");
+	}
+
+	return fd;
+}
+
+int trn_update_sg_cidr(int fd, sg_cidr_key_t *sgkey, sg_cidr_t *sg)
+{
+	int err;
+
+	if (fd < 0) {
+		TRN_LOG_ERROR("Invalid sg_cidr_map fd");
+		return 1;
+	}
+
+	err = bpf_map_update_elem(fd, sgkey, sg, 0);
+	if (err) {
+		TRN_LOG_ERROR("Store sg_cidr mapping failed (err:%d).", err);
+		return 1;
+	}
+
+	return 0;
+}
+
+int trn_get_sg_cidr(sg_cidr_key_t *epkey, sg_cidr_t *ep)
+{
+	int fd, err;
+
+	fd = trn_transit_map_get_fd("sg_cidr_map");
+	if (fd < 0) {
+		TRN_LOG_ERROR("Failed to get sg_cidr_map fd");
+		return 1;
+	}
+
+	err = bpf_map_lookup_elem(fd, epkey, ep);
+	if (err) {
+		TRN_LOG_ERROR("Querying sg_cidr mapping failed (err:%d).",
+			      err);
+		return 1;
+	}
+	return 0;
+}
+
+int trn_delete_sg_cidr(sg_cidr_key_t *epkey)
+{
+	sg_cidr_t ep;
+	int fd, err;
+
+	fd = trn_transit_map_get_fd("sg_cidr_map");
+	if (fd < 0) {
+		TRN_LOG_ERROR("Failed to get sg_cidr_map fd");
+		return 1;
+	}
+
+	err = bpf_map_lookup_elem(fd, epkey, &ep);
+
+	if (err) {
+		TRN_LOG_ERROR("Querying sg_cidr for delete failed (err:%d).",
+			      err);
+		return 1;
+	}
+
+	err = bpf_map_delete_elem(fd, epkey);
+	if (err) {
+		TRN_LOG_ERROR("Deleting sg_cidr mapping failed (err:%d).",
+			      err);
+		return 1;
+	}
+
+	return 0;
+}
+// security_group
+int trn_update_sg_get_ctx(void)
+{
+	int fd;
+
+	fd = trn_transit_map_get_fd("security_group_map");
+	if (fd < 0) {
+		TRN_LOG_ERROR("Failed to get security_group_map fd");
+	}
+
+	return fd;
+}
+
+int trn_update_sg(int fd, security_group_key_t *sgkey, security_group_t *sg)
+{
+	int err;
+
+	if (fd < 0) {
+		TRN_LOG_ERROR("Invalid security_group_map fd");
+		return 1;
+	}
+
+	err = bpf_map_update_elem(fd, sgkey, sg, 0);
+	if (err) {
+		TRN_LOG_ERROR("Store sg_cidr mapping failed (err:%d).", err);
+		return 1;
+	}
+
+	return 0;
+}
+
+int trn_get_sg(security_group_key_t *sgkey, security_group_t *sg)
+{
+	int fd, err;
+
+	fd = trn_transit_map_get_fd("security_group_map");
+	if (fd < 0) {
+		TRN_LOG_ERROR("Failed to get security_group_map fd");
+		return 1;
+	}
+
+	err = bpf_map_lookup_elem(fd, sgkey, sg);
+	if (err) {
+		TRN_LOG_ERROR("Querying sg_cidr mapping failed (err:%d).",
+			      err);
+		return 1;
+	}
+	return 0;
+}
+
+int trn_delete_sg(security_group_key_t *sgkey)
+{
+	security_group_t sg;
+	int fd, err;
+
+	fd = trn_transit_map_get_fd("security_group_map");
+	if (fd < 0) {
+		TRN_LOG_ERROR("Failed to get security_group_map fd");
+		return 1;
+	}
+
+	err = bpf_map_lookup_elem(fd, sgkey, &sg);
+
+	if (err) {
+		TRN_LOG_ERROR("Querying security_group for delete failed (err:%d).",
+			      err);
+		return 1;
+	}
+
+	err = bpf_map_delete_elem(fd, sgkey);
+	if (err) {
+		TRN_LOG_ERROR("Deleting security_group mapping failed (err:%d).",
+			      err);
+		return 1;
+	}
+
+	return 0;
+}
+
+//port_range_map
+int trn_update_port_range_get_ctx(void)
+{
+	int fd;
+
+	fd = trn_transit_map_get_fd("port_range_map");
+	if (fd < 0) {
+		TRN_LOG_ERROR("Failed to get port_range_map fd");
+	}
+
+	return fd;
+}
+
+int trn_update_port_range(int fd, port_range_key_t *prkey, port_range_t *pr)
+{
+	int err;
+
+	if (fd < 0) {
+		TRN_LOG_ERROR("Invalid port_range_map fd");
+		return 1;
+	}
+
+	err = bpf_map_update_elem(fd, prkey, pr, 0);
+	if (err) {
+		TRN_LOG_ERROR("Store port_range mapping failed (err:%d).", err);
+		return 1;
+	}
+
+	return 0;
+}
+
+int trn_get_port_range(port_range_key_t *prkey, port_range_t *pr)
+{
+	int fd, err;
+
+	fd = trn_transit_map_get_fd("port_range_map");
+	if (fd < 0) {
+		TRN_LOG_ERROR("Failed to get port_range_map fd");
+		return 1;
+	}
+
+	err = bpf_map_lookup_elem(fd, prkey, pr);
+	if (err) {
+		TRN_LOG_ERROR("Querying port_range mapping failed (err:%d).",
+			      err);
+		return 1;
+	}
+	return 0;
+}
+
+int trn_delete_port_range(port_range_key_t *prkey)
+{
+	port_range_t pr;
+	int fd, err;
+
+	fd = trn_transit_map_get_fd("port_range_map");
+	if (fd < 0) {
+		TRN_LOG_ERROR("Failed to get port_range_map fd");
+		return 1;
+	}
+
+	err = bpf_map_lookup_elem(fd, prkey, &pr);
+
+	if (err) {
+		TRN_LOG_ERROR("Querying port_range for delete failed (err:%d).",
+			      err);
+		return 1;
+	}
+
+	err = bpf_map_delete_elem(fd, prkey);
+	if (err) {
+		TRN_LOG_ERROR("Deleting port_range mapping failed (err:%d).",
+			      err);
+		return 1;
+	}
+
+	return 0;
+}
+#endif
 
 int trn_update_endpoints_get_ctx(void)
 {

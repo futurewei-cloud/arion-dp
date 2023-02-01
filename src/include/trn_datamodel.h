@@ -65,6 +65,21 @@
 /* Size for OAM message queue bpfmap */
 #define TRAN_OAM_QUEUE_LEN 1024
 
+#define turnOn		0
+#define cnOn 		0
+#define sgSupport	1
+#define connTrack	0
+
+#if sgSupport
+#define TRAN_MAX_CIDRS 1024*1024
+#define TRAN_SG_STOP 1
+#define TRAN_SG_PASS 0
+
+#define SG_STATIC_PREFIX (sizeof(__be32) * 8)
+#define SG_PREFIX_LEN(PREFIX) (SG_STATIC_PREFIX + (PREFIX))
+#define SG_IPV4_PREFIX SG_PREFIX_LEN(32)
+#endif
+
 /* XDP interface_map keys for packet redirect */
 enum trn_itf_ma_key_t {
 TRAN_ITF_MAP_TENANT = 0,     // id map to ifindex connected to tenant network
@@ -147,6 +162,74 @@ typedef struct {
 	unsigned char mac[6];
 	unsigned char hmac[6];
 } __attribute__((packed, aligned(4))) endpoint_t;
+
+#if connTrack
+struct ipv4_tuple_t {
+	__u32 saddr;
+	__u32 daddr;
+
+	/* ports */
+	__u16 sport;
+	__u16 dport;
+
+	/* Addresses */
+	__u8 protocol;
+
+	/*TODO: include TCP flags, no use case for the moment! */
+} __attribute__((packed));
+
+typedef struct {
+	__u32 vni;
+	struct ipv4_tuple_t tuple;
+} __attribute__((packed)) contrack_key_t;
+
+typedef struct {
+	__u32 hip;
+	unsigned char mac[6];
+	unsigned char hmac[6];
+} __attribute__((packed, aligned(4))) contrack_t;
+#endif
+
+#if sgSupport
+typedef struct {
+    __u32 prefixlen; /* up to 32 for AF_INET, 128 for AF_INET6*/
+    __u32 vni;
+    __u16 port;
+    __u8  direction;
+    __u8  protocol;
+    __u32 src_ip;
+    __u32 dst_ip;
+} __attribute__((packed, aligned(4))) sg_cidr_key_t;
+
+typedef struct {
+	__u32 sg_id;
+	__u8 action;
+} __attribute__((packed, aligned(4))) sg_cidr_t;
+
+typedef struct {
+    __u32 vni;
+    __u32 ip;
+    __u8  direction;
+} __attribute__((packed, aligned(4))) security_group_key_t;
+
+typedef struct {
+	__u32 sg_id;
+	__u8 action;
+} __attribute__((packed, aligned(4))) security_group_t;
+
+typedef struct {
+    __u32 vni;
+    __u32 ip;
+    __u8  direction;
+} __attribute__((packed, aligned(4))) port_range_key_t;
+
+typedef struct {
+    __u16 port_min1;
+    __u16 port_max1;
+    __u16 port_min2;
+	__u16 port_max2;
+} __attribute__((packed, aligned(4))) port_range_t;
+#endif
 
 typedef struct {
 	__u32 ip;   // IP used for ZGC access

@@ -197,7 +197,7 @@ struct transit_packet {
 } __attribute__((packed, aligned(8)));
 
 struct xdp_hints_src {
-	__u16 flags;   //
+	__u16 flags;
 	__u32 vni;
 	__u32 saddr;
 	unsigned char h_source[6];

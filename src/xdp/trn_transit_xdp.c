@@ -128,10 +128,89 @@ static __inline int trn_decapsulate_and_redirect(struct transit_packet *pkt,
 	return bpf_redirect_map(&interfaces_map, ifindex, 0);
 }
 
+#if sgSupport
+static __inline int trn_sg_check(struct transit_packet *pkt) {
+
+	sg_cidr_key_t sgkey;
+	struct security_group_t *sg_entry = NULL;
+
+	sgkey.vni = pkt->vni;
+	sgkey.src_ip = pkt->inner_ip->saddr;
+	sgkey.dst_ip = pkt->inner_ip->daddr;
+	sgkey.protocol = pkt->inner_ip->protocol;
+	sgkey.prefixlen = SG_IPV4_PREFIX; // ??
+
+	// check egress
+	sgkey.direction = 0;
+	sgkey.port = 30011;
+
+	bpf_debug("[Transit:%d] XXXXX port=%d, prefixlen=%d",
+			sgkey.vni, sgkey.port, sgkey.prefixlen);
+	bpf_debug("  XXXXX proto=%d, src_ip:0x%x, dst_ip:0x%x ",
+			sgkey.protocol,
+			bpf_ntohl(sgkey.src_ip),
+			bpf_ntohl(sgkey.dst_ip));
+	sg_entry = bpf_map_lookup_elem(&sg_cidr_map, &sgkey);
+	if (sg_entry == NULL) {
+		bpf_debug("[Transit:%d XXXXX] Drop: no matching sg entry found: %d - %d\n",
+			pkt->itf_idx, sgkey.port, sgkey.vni);
+		return XDP_DROP;
+	}
+
+   // check ingress;
+	sgkey.direction = 1;
+	sgkey.src_ip = sgkey.dst_ip;
+	sgkey.dst_ip = pkt->inner_ip->saddr;
+
+	if (sgkey.protocol == IPPROTO_TCP) {
+		pkt->inner_tcp = (void *)pkt->inner_ip + sizeof(*pkt->inner_ip);
+
+		if (pkt->inner_tcp + 1 > pkt->data_end) {
+			bpf_debug("[Transit:%d] ABORTED: Bad inner TCP frame\n",
+				pkt->itf_idx);
+			return XDP_ABORTED;
+		}
+		sgkey.port = pkt->inner_tcp->dest; // check dst first
+	} else if (sgkey.protocol == IPPROTO_UDP) {
+		pkt->inner_udp = (void *)pkt->inner_ip + sizeof(*pkt->inner_ip);
+
+		if (pkt->inner_udp + 1 > pkt->data_end) {
+			bpf_debug("[Transit:%d] ABORTED: Bad inner UDP oframe\n",
+				  pkt->itf_idx);
+			return XDP_ABORTED;
+		}
+		sgkey.port = pkt->inner_udp->dest;
+	} else {
+		bpf_debug("[Transit:%d] PASS: Non supported frame, proto: %d\n",
+			pkt->itf_idx, sgkey.protocol);
+		return XDP_PASS;
+	}
+
+	bpf_debug("[Transit:%d] XXXXX port=%d, prefixlen=%d",
+			sgkey.vni, sgkey.port, sgkey.prefixlen);
+	bpf_debug("  XXXXX proto=%d, src_ip:0x%x, dst_ip:0x%x ",
+			sgkey.protocol,
+			bpf_ntohl(sgkey.src_ip),
+			bpf_ntohl(sgkey.dst_ip));
+	sg_entry = bpf_map_lookup_elem(&sg_cidr_map, &sgkey);
+	if (sg_entry == NULL) {
+		// other follow up logic should be added here
+		bpf_debug("[Transit:%d XXXXX] Drop: no matching sg entry found: %d - %d\n",
+			pkt->itf_idx, sgkey.port, sgkey.vni);
+		return XDP_DROP;
+	}
+
+	bpf_debug("[Transit:%d XXXXX] Pass: matching sg entry found: %d - 0x%x\n",
+		sgkey.vni, sgkey.port, bpf_ntohl(pkt->inner_ip->daddr));
+	return XDP_PASS;
+}
+#endif
+
 static __inline int trn_process_inner_ip(struct transit_packet *pkt)
 {
 	endpoint_t *ep;
 	endpoint_key_t epkey;
+	int action = XDP_PASS;
 	ipv4_flow_t *flow = &pkt->fctx.flow;
 	__u64 csum = 0;
 	__u16 len = 0;
@@ -143,6 +222,14 @@ static __inline int trn_process_inner_ip(struct transit_packet *pkt)
 		bpf_debug("[Transit:%d] ABORTED: Bad inner IP frame\n", pkt->itf_idx);
 		return XDP_ABORTED;
 	}
+
+#if sgSupport
+	action = trn_sg_check(pkt);
+	if (action != XDP_PASS) {
+		bpf_debug("[Transit:%d XXXX] No SG entry found, drop it: \n", pkt->itf_idx);
+		return action;
+	}
+#endif
 
 	/* Look up target endpoint */
 	epkey.vni = pkt->vni;

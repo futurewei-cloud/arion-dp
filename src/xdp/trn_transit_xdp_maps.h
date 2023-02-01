@@ -30,7 +30,6 @@
 #include "extern/xdpcap_hook.h"
 
 #include "trn_datamodel.h"
-#define turnOn 0
 
 struct bpf_map_def SEC("maps") jmp_table = {
 	.type = BPF_MAP_TYPE_PROG_ARRAY,
@@ -55,6 +54,45 @@ struct bpf_map_def SEC("maps") xsks_map = {
         .value_size = sizeof(int),
         .max_entries = 64, /* Assume netdev has no more than 64 queues */
 };
+#if connTrack
+struct bpf_map_def SEC("maps") contrack_map = {
+	.type = BPF_MAP_TYPE_LRU_HASH,
+	.key_size = sizeof(contrack_key_t),
+	.value_size = sizeof(contrack_t),
+	.max_entries = TRAN_MAX_NEP,
+	.map_flags = 0,
+};
+BPF_ANNOTATE_KV_PAIR(contrack_map, contrack_key_t, contrack_t);
+#endif
+
+#if sgSupport
+struct bpf_map_def SEC("maps") sg_cidr_map = {
+	.type = BPF_MAP_TYPE_LPM_TRIE,
+	.key_size = sizeof(sg_cidr_key_t),
+	.value_size = sizeof(security_group_t),
+	.max_entries = TRAN_MAX_CIDRS,
+	.map_flags = BPF_F_NO_PREALLOC,
+};
+BPF_ANNOTATE_KV_PAIR(sg_cidr_map, sg_cidr_key_t, security_group_t);
+
+struct bpf_map_def SEC("maps") security_group_map = {
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size = sizeof(security_group_key_t),
+	.value_size = sizeof(security_group_t),
+	.max_entries = TRAN_MAX_NEP,
+	.map_flags = 0,
+};
+BPF_ANNOTATE_KV_PAIR(security_group_map, security_group_key_t, security_group_t);
+
+struct bpf_map_def SEC("maps") port_range_map = {
+	.type = BPF_MAP_TYPE_HASH,
+	.key_size = sizeof(port_range_key_t),
+	.value_size = sizeof(port_range_t),
+	.max_entries = TRAN_MAX_NEP,
+	.map_flags = 0,
+};
+BPF_ANNOTATE_KV_PAIR(port_range_map, port_range_key_t, port_range_t);
+#endif
 
 #if turnOn
 struct bpf_map_def SEC("maps") hosted_eps_if = {
@@ -86,6 +124,16 @@ struct bpf_map_def SEC("maps") interfaces_map = {
 BPF_ANNOTATE_KV_PAIR(interface_map, int, int);
 
 #if turnOn
+struct bpf_map_def SEC("maps") oam_queue_map = {
+	.type = BPF_MAP_TYPE_QUEUE,
+	.key_size = 0,
+	.value_size = sizeof(flow_ctx_t),
+	.max_entries = TRAN_OAM_QUEUE_LEN,
+};
+BPF_ANNOTATE_KV_PAIR_QUEUESTACK(oam_queue_map, flow_ctx_t);
+#endif
+
+#if cnOn
 struct bpf_map_def SEC("maps") oam_queue_map = {
 	.type = BPF_MAP_TYPE_QUEUE,
 	.key_size = 0,

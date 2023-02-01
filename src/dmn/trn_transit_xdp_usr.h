@@ -9,7 +9,7 @@
  * @brief User space APIs and data structures to program transit
  * xdp program.
  *
- * @copyright Copyright (c) 2019-2022 The Authors.
+ * @copyright Copyright (c) 2019-2023 The Authors.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,6 +51,8 @@
 #include "extern/cJSON.h"
 
 #define turnOn 0
+#define sgSupport 1
+
 typedef struct {
 	int prog_id;          // definition in trn_xdp_prog_id_t
 	char *prog_path;      // full path of xdp program
@@ -99,23 +101,33 @@ typedef struct {
 } user_metadata_t;
 
 trn_iface_t *trn_get_itf_context(char *interface);
-
 int trn_update_itf_config(struct tunnel_iface_t *itf);
 
 int trn_update_endpoints_get_ctx(void);
-
 int trn_update_endpoint(int fd, endpoint_key_t *epkey, endpoint_t *ep);
-
 int trn_get_endpoint(endpoint_key_t *epkey, endpoint_t *ep);
-
 int trn_delete_endpoint(endpoint_key_t *epkey);
 
+#if sgSupport
+int trn_update_sg_cidr_get_ctx(void);
+int trn_update_sg_cidr(int fd, sg_cidr_key_t *sgkey, sg_cidr_t *sg);
+int trn_get_sg_cidr(sg_cidr_key_t *sgkey, sg_cidr_t *sg);
+int trn_delete_sg_cidr(sg_cidr_key_t *sgkey);
+
+int trn_update_sg_get_ctx(void);
+int trn_update_sg(int fd, security_group_key_t *sgkey, security_group_t *sg);
+int trn_get_sg(security_group_key_t *sgkey, security_group_t *sg);
+int trn_delete_sg(security_group_key_t *sgkey);
+
+int trn_update_port_range_get_ctx(void);
+int trn_update_port_range(int fd, port_range_key_t *prkey, port_range_t *pr);
+int trn_get_port_range(port_range_key_t *prkey, port_range_t *pr);
+int trn_delete_port_range(port_range_key_t *prkey);
+#endif
+
 int trn_transit_xdp_load(char **interfaces, unsigned short ibo_port, bool debug);
-
 int trn_transit_xdp_unload(char **interfaces);
-
 int trn_transit_ebpf_load(int prog_idx);
-
 int trn_transit_ebpf_unload(int prog_idx);
 
 #if turnOn
